@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Today's Word</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #221a14;
+    --card: #2c2118;
+    --card-edge: #4a3c2c;
+    --linen: #ece2c9;
+    --linen-dim: #b8a989;
+    --gold: #c9a14a;
+    --gold-dim: #8a7039;
+    --rust: #a85c3c;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: var(--ink);
+    background-image: radial-gradient(ellipse at 50% -10%, #34281c 0%, var(--ink) 60%);
+    color: var(--linen);
+    font-family: 'Work Sans', sans-serif;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--card-edge);
+    border-radius: 6px;
+    padding: 56px 40px 40px;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold) 50%, var(--gold-dim));
+    opacity: 0.8;
+  }
+
+  .ribbon {
+    position: absolute;
+    top: 0;
+    right: 36px;
+    background: var(--gold);
+    color: #2c2118;
+    font-family: 'Work Sans', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 6px 14px 10px;
+    border-radius: 0 0 4px 4px;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--linen-dim);
+    margin: 0 0 28px;
+  }
+
+  blockquote {
+    margin: 0 0 28px;
+    font-family: 'Source Serif 4', serif;
+    font-size: clamp(24px, 5vw, 30px);
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--linen);
+  }
+
+  blockquote::before {
+    content: "\201C";
+    display: block;
+    font-size: 48px;
+    line-height: 0.5;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+
+  .context {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--linen-dim);
+    margin: 0 0 24px;
+    border-left: 2px solid var(--card-edge);
+    padding-left: 16px;
+  }
+
+  .theme-tag {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 4px 10px;
+    margin: 0 0 32px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--card-edge);
+    padding-top: 24px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Work Sans', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 10px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--card-edge);
+    background: transparent;
+    color: var(--linen);
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .btn.primary {
+    background: var(--gold);
+    color: #2c2118;
+    border-color: var(--gold);
+  }
+
+  .btn.primary:hover { background: #d9b35e; color: #2c2118; }
+
+  .icon { width: 15px; height: 15px; flex-shrink: 0; }
+
+  .toast {
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--gold);
+    min-height: 16px;
+  }
+
+  .footnote {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--linen-dim);
+    opacity: 0.6;
+    margin-top: 18px;
+  }
+
+  .skeleton blockquote, .skeleton .context, .skeleton .source {
+    color: transparent;
+    background: linear-gradient(90deg, var(--card-edge) 25%, #3a2e21 50%, var(--card-edge) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 4px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @media (max-width: 480px) {
+    .card { padding: 56px 22px 28px; }
+    .ribbon { right: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="card" id="card">
+    <div class="ribbon" id="dayTag">Day —</div>
+    <p class="eyebrow">Today's word</p>
+    <blockquote id="quoteText">Loading today's word&hellip;</blockquote>
+    <p class="context" id="contextText"></p>
+    <p class="theme-tag" id="sourceText"></p>
+    <div class="actions">
+      <a class="btn primary" id="watchBtn" href="#" target="_blank" rel="noopener">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+        Watch the message
+      </a>
+      <button class="btn" id="shareBtn" type="button">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+        Share
+      </button>
+    </div>
+    <p class="toast" id="toast"></p>
+  </div>
+  <p class="footnote">A quote, every day.</p>
+</div>
+
+<script>
+  // ---- CONFIGURATION ----
+  // Paste your published Google Sheet CSV link here. See README for setup steps.
+  // Sheet > File > Share > Publish to web > choose the quotes tab > CSV.
+  const SHEET_CSV_URL = "";
+
+  // Used while SHEET_CSV_URL is empty, or if the fetch fails, so the page
+  // still has something to show.
+  const FALLBACK_QUOTES = [
+    {
+      quote: "As Christians, what we want to understand is that at that point, we aren't just waiting, we're waiting on God.",
+      context: "The preacher explains that for Christians, difficult periods of waiting are not hopeless but an opportunity to specifically wait on God.",
+      theme: "Waiting on God",
+      video_url: "https://www.youtube.com/watch?v=PcTCjZmmJNc",
+      video_timestamp_seconds: "217"
+    },
+    {
+      quote: "God always keeps his promises, he always does what he says he's going to do.",
+      context: "The preacher uses the example of Simeon waiting for the Messiah and the thousands of years people waited for prophecies to be fulfilled, highlighting God's unfailing commitment.",
+      theme: "God's Faithfulness",
+      video_url: "https://www.youtube.com/watch?v=PcTCjZmmJNc",
+      video_timestamp_seconds: "671"
+    },
+    {
+      quote: "Don't let time determine whether or not you keep trusting in his promises, because they are true today and they are true 50 years from today.",
+      context: "Discussing how God's sense of time differs from human time, the preacher encourages listeners not to lose faith based on how long they have to wait.",
+      theme: "Trust in God's Timing",
+      video_url: "https://www.youtube.com/watch?v=PcTCjZmmJNc",
+      video_timestamp_seconds: "873"
+    }
+  ];
+
+  // Maps your spreadsheet's column headers to the internal field names the
+  // app uses. Edit the right-hand values here if your headers ever change.
+  const COLUMN_MAP = {
+    quote: "Quote",
+    context: "Context",
+    theme: "Theme/Topic",
+    video_url: "Video Link",
+    timestamp: "Timestamp"
+  };
+
+  function timestampToSeconds(ts) {
+    if (!ts) return "";
+    const parts = ts.trim().split(":").map(p => parseInt(p, 10));
+    if (parts.some(isNaN)) return "";
+    let seconds = 0;
+    for (const p of parts) seconds = seconds * 60 + p;
+    return String(seconds);
+  }
+
+  function normalizeRow(raw) {
+    return {
+      quote: raw[COLUMN_MAP.quote] || "",
+      context: raw[COLUMN_MAP.context] || "",
+      theme: raw[COLUMN_MAP.theme] || "",
+      video_url: raw[COLUMN_MAP.video_url] || "",
+      video_timestamp_seconds: timestampToSeconds(raw[COLUMN_MAP.timestamp])
+    };
+  }
+    const start = new Date(d.getFullYear(), 0, 0);
+    const diff = d - start;
+    return Math.floor(diff / 86400000);
+  }
+
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (c === '"' && next === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { row.push(field); field = ""; }
+        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+        else if (c === '\r') { /* skip */ }
+        else { field += c; }
+      }
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    const headers = rows.shift().map(h => h.trim());
+    return rows.filter(r => r.some(v => v.trim() !== "")).map(r => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = (r[i] || "").trim());
+      return obj;
+    });
+  }
+
+  async function loadQuotes() {
+    if (!SHEET_CSV_URL) return FALLBACK_QUOTES;
+    try {
+      const res = await fetch(SHEET_CSV_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("Sheet fetch failed");
+      const text = await res.text();
+      const rows = parseCSV(text);
+      if (!rows.length) throw new Error("No rows");
+      return rows.map(normalizeRow).filter(r => r.quote.trim() !== "");
+    } catch (err) {
+      console.error("Falling back to sample quotes:", err);
+      return FALLBACK_QUOTES;
+    }
+  }
+
+  function pickToday(quotes) {
+    const idx = dayOfYear(new Date()) % quotes.length;
+    return quotes[idx];
+  }
+
+  function buildVideoLink(q) {
+    if (!q.video_url) return null;
+    const seconds = (q.video_timestamp_seconds || "").trim();
+    if (!seconds) return q.video_url;
+    try {
+      const u = new URL(q.video_url);
+      u.searchParams.set("t", seconds + "s");
+      return u.toString();
+    } catch {
+      return q.video_url;
+    }
+  }
+
+  function render(q, dayIndex, total) {
+    document.getElementById("dayTag").textContent = `Day ${dayIndex + 1}`;
+    document.getElementById("quoteText").textContent = q.quote;
+
+    const ctxEl = document.getElementById("contextText");
+    if (q.context && q.context.trim()) {
+      ctxEl.textContent = q.context;
+      ctxEl.style.display = "";
+    } else {
+      ctxEl.style.display = "none";
+    }
+
+    const sourceEl = document.getElementById("sourceText");
+    if (q.theme && q.theme.trim()) {
+      sourceEl.textContent = q.theme;
+      sourceEl.style.display = "";
+    } else {
+      sourceEl.style.display = "none";
+    }
+
+    const watchBtn = document.getElementById("watchBtn");
+    const link = buildVideoLink(q);
+    if (link) {
+      watchBtn.href = link;
+      watchBtn.style.display = "";
+    } else {
+      watchBtn.style.display = "none";
+    }
+
+    document.getElementById("card").classList.remove("skeleton");
+
+    document.getElementById("shareBtn").onclick = async () => {
+      const shareText = `"${q.quote}"` + (q.theme ? `\n\u2014 ${q.theme}` : "") + (link ? `\n${link}` : "");
+      const toast = document.getElementById("toast");
+      if (navigator.share) {
+        try {
+          await navigator.share({ text: shareText, url: link || undefined });
+        } catch {}
+      } else {
+        try {
+          await navigator.clipboard.writeText(shareText);
+          toast.textContent = "Copied to clipboard.";
+          setTimeout(() => toast.textContent = "", 2500);
+        } catch {
+          toast.textContent = shareText;
+        }
+      }
+    };
+  }
+
+  loadQuotes().then(quotes => {
+    const q = pickToday(quotes);
+    const idx = dayOfYear(new Date()) % quotes.length;
+    render(q, idx, quotes.length);
+  });
+</script>
+
+</body>
+</html>
