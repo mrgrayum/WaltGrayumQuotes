@@ -156,6 +156,12 @@
     .signin-sent-title{margin:14px 0 6px;color:var(--ink);font:400 20px/1.3 "Libre Caslon Text",Georgia,serif}
     .signin-sent-copy{margin:0;color:var(--muted);font-size:13.5px;line-height:1.6}
     #signinSentEmail{color:var(--ink);font-weight:600}
+    .signin-paste{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+    .signin-paste-heading{margin:0;color:var(--ink);font-size:14px;font-weight:600}
+    .signin-paste-copy{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+    .signin-paste .signin-label{margin-top:12px}
+    .signin-paste-btn{width:100%;margin-top:12px}
+    #signinSent .signin-paste{margin-top:18px}
 
 
     .dq-style-copy{padding:15px 15px 2px}
@@ -296,10 +302,25 @@
       <p class="flag-error" id="signinError" hidden></p>
       <button class="button primary signin-send" id="signinSend" type="button">Email me a sign-in link</button>
       <button class="button signin-cancel" id="signinCancel" type="button">Cancel</button>
+      <div class="signin-paste">
+        <p class="signin-paste-heading">Have a sign-in link already?</p>
+        <p class="signin-paste-copy">Paste the link from your email to finish signing in here.</p>
+        <label class="signin-label" for="signinPasteLink">Sign-in link</label>
+        <input class="signin-field" id="signinPasteLink" type="text" placeholder="Paste the link here" autocomplete="off" autocapitalize="none" spellcheck="false" />
+        <p class="flag-error" id="signinPasteError" hidden></p>
+        <button class="button signin-paste-btn" id="signinPasteBtn" type="button">Complete sign-in</button>
+      </div>
     </div>
     <div id="signinSent" hidden>
       <h3 class="signin-sent-title">Check your email</h3>
       <p class="signin-sent-copy">We sent a sign-in link to <span id="signinSentEmail"></span>. Open it on this device to finish signing in &mdash; you can close this now.</p>
+      <div class="signin-paste">
+        <p class="signin-paste-copy">In the email, press and hold the sign-in button and choose Copy &mdash; don&rsquo;t tap it. Then come back here and paste the link below.</p>
+        <label class="signin-label" for="signinPasteLinkSent">Sign-in link</label>
+        <input class="signin-field" id="signinPasteLinkSent" type="text" placeholder="Paste the link here" autocomplete="off" autocapitalize="none" spellcheck="false" />
+        <p class="flag-error" id="signinPasteErrorSent" hidden></p>
+        <button class="button primary signin-paste-btn" id="signinPasteBtnSent" type="button">Complete sign-in</button>
+      </div>
       <button class="button signin-send" id="signinDone" type="button">Done</button>
     </div>
   </div></section></div>
@@ -491,7 +512,7 @@
     function cleanSigninUrl(){try{var u=new URL(window.location.href),changed=false;['apiKey','oobCode','mode','lang','continueUrl'].forEach(function(k){if(u.searchParams.has(k)){u.searchParams.delete(k);changed=true;}});if(changed)window.history.replaceState(null,'',u.toString());}catch(e){}}
     function openSignInSheet(mode){
       signinMode=mode||'signin';signinBusy=false;
-      $('signinSent').hidden=true;$('signinForm').hidden=false;$('signinDenied').hidden=true;$('signinError').hidden=true;
+      $('signinSent').hidden=true;$('signinForm').hidden=false;$('signinDenied').hidden=true;$('signinError').hidden=true;$('signinPasteError').hidden=true;$('signinPasteErrorSent').hidden=true;
       $('signinTitle').textContent=signinMode==='complete'?'Finish signing in':'Sign in';
       $('signinSub').textContent=signinMode==='complete'?'Enter the email address your sign-in link was sent to.':'We\u2019ll email you a link \u2014 tap it on this device to finish signing in.';
       var btn=$('signinSend');btn.disabled=false;btn.textContent=signinMode==='complete'?'Finish signing in':'Email me a sign-in link';
@@ -500,6 +521,45 @@
       setTimeout(function(){$('signinEmail').focus();},30);
     }
     function closeSignIn(){$('signinBackdrop').classList.remove('open');}
+    var pasteBusy=false;
+    function extractSigninUrl(raw){var tx=(raw||'').trim();var m=tx.match(/https:\/\/[^\s"'<>]+/);return m?m[0]:tx;}
+    function pasteEls(which){if(which==='sent')return{input:$('signinPasteLinkSent'),btn:$('signinPasteBtnSent'),err:$('signinPasteErrorSent')};return{input:$('signinPasteLink'),btn:$('signinPasteBtn'),err:$('signinPasteError')};}
+    function pasteSignIn(which){
+      if(pasteBusy)return;
+      var els=pasteEls(which);
+      var url=extractSigninUrl(els.input.value);
+      var email=$('signinEmail').value.trim();
+      if(!email){try{email=(localStorage.getItem(SIGNIN_EMAIL_KEY)||'').trim();}catch(e){email='';}}
+      els.err.hidden=true;$('signinDenied').hidden=true;
+      if(!url){els.err.textContent='Paste your sign-in link first.';els.err.hidden=false;return;}
+      if(!email||!/^[^\s@]+@[^\s@]+$/.test(email)){els.err.textContent='Enter your email address above first.';els.err.hidden=false;return;}
+      pasteBusy=true;els.btn.disabled=true;var pasteLabel=els.btn.textContent;els.btn.textContent='Signing in\u2026';
+      function pasteReset(){pasteBusy=false;els.btn.disabled=false;els.btn.textContent=pasteLabel;}
+      acctServices().then(function(s){
+        if(!s.auth)throw new Error('Auth unavailable');
+        if(!s.auth.isSignInWithEmailLink(url)){
+          pasteReset();
+          els.err.textContent='That doesn\u2019t look like a sign-in link. Paste the full link from the email.';
+          els.err.hidden=false;
+          return null;
+        }
+        return s.auth.signInWithEmailLink(email,url).then(function(){
+          pasteReset();
+          acctFreshSignIn=true;
+          try{localStorage.removeItem(SIGNIN_EMAIL_KEY);}catch(e){}
+          els.input.value='';
+          closeSignIn();
+        },function(){
+          pasteReset();
+          els.err.textContent='That link didn\u2019t work \u2014 it may have expired or already been used. Request a fresh link and try again.';
+          els.err.hidden=false;
+        });
+      }).catch(function(){
+        pasteReset();
+        els.err.textContent='Couldn\u2019t sign in \u2014 check your connection and try again.';
+        els.err.hidden=false;
+      });
+    }
     function signinSubmit(){
       if(signinBusy)return;
       var email=$('signinEmail').value.trim();
@@ -517,7 +577,7 @@
         return s.auth.sendSignInLinkToEmail(email,{url:'https://waltgrayumquotes.com/',handleCodeInApp:true}).then(function(){
           try{localStorage.setItem(SIGNIN_EMAIL_KEY,email);}catch(e){}
           signinBusy=false;
-          $('signinForm').hidden=true;$('signinSentEmail').textContent=email;$('signinSent').hidden=false;
+          $('signinForm').hidden=true;$('signinSentEmail').textContent=email;$('signinSent').hidden=false;$('signinPasteErrorSent').hidden=true;$('signinPasteLinkSent').value='';
           setTimeout(function(){$('signinDone').focus();},30);
         });
       }).catch(function(){
@@ -555,6 +615,10 @@
     $('signinDone').addEventListener('click',closeSignIn);
     $('signinBackdrop').addEventListener('click',function(e){if(e.target===this)closeSignIn();});
     $('signinEmail').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();signinSubmit();}});
+    $('signinPasteBtn').addEventListener('click',function(){pasteSignIn('form');});
+    $('signinPasteBtnSent').addEventListener('click',function(){pasteSignIn('sent');});
+    $('signinPasteLink').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();pasteSignIn('form');}});
+    $('signinPasteLinkSent').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();pasteSignIn('sent');}});
     function confirmShare(){var q=state.current;if(!q)return;var style=shareStyleSel;closeSharePicker();doShare(q,style);}
     function doShare(q,style){canvasCard(q,style,function(blob){var filename=quoteImageFilename(q),file=new File([blob],filename,{type:'image/png'});var text='“'+q.text+'”\n\n— Walt Grayum\n'+formatDate(q.date)+'\n\n'+sourceLabel(q)+' '+q.title;if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({title:'A quote from Walt Grayum',text:text,files:[file]}).catch(function(e){if(e.name!=='AbortError')downloadBlob(blob,filename);});}else if(navigator.share){navigator.share({title:'A quote from Walt Grayum',text:text}).catch(function(e){if(e.name!=='AbortError')downloadBlob(blob,filename);});}else downloadBlob(blob,filename);});}
     function downloadBlob(blob,filename){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=filename||'quote-walt-grayum.png';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},1000);toast('Quote card downloaded');}
@@ -577,7 +641,7 @@
     document.querySelectorAll('[data-dq-style]').forEach(function(b){b.addEventListener('click',function(){applyQuoteStyle(b.dataset.dqStyle);});});
     document.addEventListener('keydown',function(e){if(e.key==='Escape'){if($('welcomeBackdrop').classList.contains('open'))closeWelcome();else if($('playerBackdrop').classList.contains('open'))closePlayer();else if($('flagBackdrop').classList.contains('open'))closeFlag();else if($('shareBackdrop').classList.contains('open'))closeSharePicker();else if($('signinBackdrop').classList.contains('open'))closeSignIn();else if($('summaryBackdrop').classList.contains('open'))closeSummary();else if($('themeBackdrop').classList.contains('open'))closeThemes();else if($('detailBackdrop').classList.contains('open'))closeDetail();}});
     state.favIds=loadFavorites();state.quoteStyle=loadQuoteStyle();document.documentElement.setAttribute('data-quote-style',state.quoteStyle);syncQuoteStyleUI();renderToday();renderLibrary();maybeOpenWelcome();initAccount();
-    if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('data:application/javascript;base64,Y29uc3QgQ0FDSEVfTkFNRSA9ICd3YWx0LXF1b3Rlcy1zaGVsbC12MzEnOwpjb25zdCBBUFBfU0hFTEwgPSBbCiAgJy4vYXBwLmh0bWwnLAogICcuL21hbmlmZXN0Lmpzb24nLAogICcuL2ljb24tMTkyLnBuZycsCiAgJy4vaWNvbi01MTIucG5nJywKICAnLi93YWx0LXdlbGNvbWUuanBnJwpdOwoKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsKICBldmVudC53YWl0VW50aWwoY2FjaGVzLm9wZW4oQ0FDSEVfTkFNRSkudGhlbihmdW5jdGlvbihjYWNoZSkgewogICAgcmV0dXJuIGNhY2hlLmFkZEFsbChBUFBfU0hFTEwpOwogIH0pLnRoZW4oZnVuY3Rpb24oKSB7CiAgICByZXR1cm4gc2VsZi5za2lwV2FpdGluZygpOwogIH0pKTsKfSk7CgpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2FjdGl2YXRlJywgZnVuY3Rpb24oZXZlbnQpIHsKICBldmVudC53YWl0VW50aWwoY2FjaGVzLmtleXMoKS50aGVuKGZ1bmN0aW9uKGtleXMpIHsKICAgIHJldHVybiBQcm9taXNlLmFsbChrZXlzLmZpbHRlcihmdW5jdGlvbihrZXkpIHsKICAgICAgcmV0dXJuIGtleSAhPT0gQ0FDSEVfTkFNRTsKICAgIH0pLm1hcChmdW5jdGlvbihrZXkpIHsKICAgICAgcmV0dXJuIGNhY2hlcy5kZWxldGUoa2V5KTsKICAgIH0pKTsKICB9KS50aGVuKGZ1bmN0aW9uKCkgewogICAgcmV0dXJuIHNlbGYuY2xpZW50cy5jbGFpbSgpOwogIH0pKTsKfSk7CgpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2ZldGNoJywgZnVuY3Rpb24oZXZlbnQpIHsKICBpZiAoZXZlbnQucmVxdWVzdC5tZXRob2QgIT09ICdHRVQnKSByZXR1cm47CiAgZXZlbnQucmVzcG9uZFdpdGgoY2FjaGVzLm1hdGNoKGV2ZW50LnJlcXVlc3QpLnRoZW4oZnVuY3Rpb24oY2FjaGVkKSB7CiAgICBpZiAoY2FjaGVkKSByZXR1cm4gY2FjaGVkOwogICAgcmV0dXJuIGZldGNoKGV2ZW50LnJlcXVlc3QpLnRoZW4oZnVuY3Rpb24ocmVzcG9uc2UpIHsKICAgICAgaWYgKHJlc3BvbnNlICYmIHJlc3BvbnNlLm9rICYmIG5ldyBVUkwoZXZlbnQucmVxdWVzdC51cmwpLm9yaWdpbiA9PT0gc2VsZi5sb2NhdGlvbi5vcmlnaW4pIHsKICAgICAgICB2YXIgY29weSA9IHJlc3BvbnNlLmNsb25lKCk7CiAgICAgICAgY2FjaGVzLm9wZW4oQ0FDSEVfTkFNRSkudGhlbihmdW5jdGlvbihjYWNoZSkgeyBjYWNoZS5wdXQoZXZlbnQucmVxdWVzdCwgY29weSk7IH0pOwogICAgICB9CiAgICAgIHJldHVybiByZXNwb25zZTsKICAgIH0pLmNhdGNoKGZ1bmN0aW9uKCkgewogICAgICBpZiAoZXZlbnQucmVxdWVzdC5tb2RlID09PSAnbmF2aWdhdGUnKSByZXR1cm4gY2FjaGVzLm1hdGNoKCcuL2FwcC5odG1sJyk7CiAgICAgIHRocm93IG5ldyBFcnJvcignT2ZmbGluZSByZXNvdXJjZSB1bmF2YWlsYWJsZScpOwogICAgfSk7CiAgfSkpOwp9KTsK').catch(function(){});});}
+    if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('data:application/javascript;base64,Y29uc3QgQ0FDSEVfTkFNRSA9ICd3YWx0LXF1b3Rlcy1zaGVsbC12MzInOwpjb25zdCBBUFBfU0hFTEwgPSBbCiAgJy4vYXBwLmh0bWwnLAogICcuL21hbmlmZXN0Lmpzb24nLAogICcuL2ljb24tMTkyLnBuZycsCiAgJy4vaWNvbi01MTIucG5nJywKICAnLi93YWx0LXdlbGNvbWUuanBnJwpdOwoKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsKICBldmVudC53YWl0VW50aWwoY2FjaGVzLm9wZW4oQ0FDSEVfTkFNRSkudGhlbihmdW5jdGlvbihjYWNoZSkgewogICAgcmV0dXJuIGNhY2hlLmFkZEFsbChBUFBfU0hFTEwpOwogIH0pLnRoZW4oZnVuY3Rpb24oKSB7CiAgICByZXR1cm4gc2VsZi5za2lwV2FpdGluZygpOwogIH0pKTsKfSk7CgpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2FjdGl2YXRlJywgZnVuY3Rpb24oZXZlbnQpIHsKICBldmVudC53YWl0VW50aWwoY2FjaGVzLmtleXMoKS50aGVuKGZ1bmN0aW9uKGtleXMpIHsKICAgIHJldHVybiBQcm9taXNlLmFsbChrZXlzLmZpbHRlcihmdW5jdGlvbihrZXkpIHsKICAgICAgcmV0dXJuIGtleSAhPT0gQ0FDSEVfTkFNRTsKICAgIH0pLm1hcChmdW5jdGlvbihrZXkpIHsKICAgICAgcmV0dXJuIGNhY2hlcy5kZWxldGUoa2V5KTsKICAgIH0pKTsKICB9KS50aGVuKGZ1bmN0aW9uKCkgewogICAgcmV0dXJuIHNlbGYuY2xpZW50cy5jbGFpbSgpOwogIH0pKTsKfSk7CgpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2ZldGNoJywgZnVuY3Rpb24oZXZlbnQpIHsKICBpZiAoZXZlbnQucmVxdWVzdC5tZXRob2QgIT09ICdHRVQnKSByZXR1cm47CiAgZXZlbnQucmVzcG9uZFdpdGgoY2FjaGVzLm1hdGNoKGV2ZW50LnJlcXVlc3QpLnRoZW4oZnVuY3Rpb24oY2FjaGVkKSB7CiAgICBpZiAoY2FjaGVkKSByZXR1cm4gY2FjaGVkOwogICAgcmV0dXJuIGZldGNoKGV2ZW50LnJlcXVlc3QpLnRoZW4oZnVuY3Rpb24ocmVzcG9uc2UpIHsKICAgICAgaWYgKHJlc3BvbnNlICYmIHJlc3BvbnNlLm9rICYmIG5ldyBVUkwoZXZlbnQucmVxdWVzdC51cmwpLm9yaWdpbiA9PT0gc2VsZi5sb2NhdGlvbi5vcmlnaW4pIHsKICAgICAgICB2YXIgY29weSA9IHJlc3BvbnNlLmNsb25lKCk7CiAgICAgICAgY2FjaGVzLm9wZW4oQ0FDSEVfTkFNRSkudGhlbihmdW5jdGlvbihjYWNoZSkgeyBjYWNoZS5wdXQoZXZlbnQucmVxdWVzdCwgY29weSk7IH0pOwogICAgICB9CiAgICAgIHJldHVybiByZXNwb25zZTsKICAgIH0pLmNhdGNoKGZ1bmN0aW9uKCkgewogICAgICBpZiAoZXZlbnQucmVxdWVzdC5tb2RlID09PSAnbmF2aWdhdGUnKSByZXR1cm4gY2FjaGVzLm1hdGNoKCcuL2FwcC5odG1sJyk7CiAgICAgIHRocm93IG5ldyBFcnJvcignT2ZmbGluZSByZXNvdXJjZSB1bmF2YWlsYWJsZScpOwogICAgfSk7CiAgfSkpOwp9KTsK').catch(function(){});});}
   })();
   </script>
   <script>
