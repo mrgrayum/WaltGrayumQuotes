@@ -1,4 +1,4 @@
-const CACHE_NAME = 'walt-quotes-shell-v39';
+const CACHE_NAME = 'walt-quotes-shell-v40';
 const APP_SHELL = [
   './index.html',
   './assets/app.html',
