@@ -209,6 +209,10 @@
     .hs-add-btn{width:100%;margin-top:14px;min-height:50px;border-radius:13px;font-size:14px}
     .hs-guide-link{display:inline-block;margin-top:10px;border:0;background:transparent;padding:6px 2px;color:var(--accent-strong);font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
     .push-ios-note{margin-top:7px}
+    .push-btn-col{flex:0 0 auto;width:min(200px,50%);display:flex;flex-direction:column}
+    .push-btn-col .button{width:100%}
+    .push-status{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.45;text-align:center}
+    .push-status[hidden]{display:none}
     .install-backdrop{z-index:70}
     .install-sheet{width:min(100%,520px)}
     .install-title{margin:8px 0 4px;color:var(--ink);font:400 24px/1.25 "Libre Caslon Text",Georgia,serif}
@@ -268,7 +272,7 @@
       <div class="settings-card"><div class="refresh-row"><div class="refresh-copy"><span class="appearance-title">Refresh the app</span><span class="appearance-note">Load the latest version, so new quotes and features appear and anything that didn&rsquo;t update on its own catches up. Your favorites stay saved.</span></div><button class="button" id="refreshApp" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>Refresh</button></div></div>
       <div class="settings-card hs-card open" id="hsCard"><button class="hs-head" id="hsToggle" type="button" aria-expanded="true" aria-controls="hsBody"><span class="hs-head-copy"><span class="appearance-title">Add to your home screen</span><span class="appearance-note">Keep the daily quote one tap away.</span></span><span class="hs-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button><div class="hs-body" id="hsBody"><div class="hs-body-inner"><div class="hs-content"><div id="hsSteps"><p class="hs-intro">Add Daily Quotes to your home screen so it opens like an app. On iPhone, this is also what makes the daily reminder work.</p><button class="button primary hs-add-btn" id="hsInstallBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8 10l4 4 4-4"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>Add to Home Screen</button><p class="hs-note" id="hsInstallHint">On many Android phones this opens the install prompt right away. On iPhone it opens a short visual guide.</p><p class="hs-set" id="hsAdded" hidden>Added &mdash; open Daily Quotes from your new home-screen icon.</p><button class="hs-guide-link" id="hsGuideLink" type="button">See the step-by-step guide</button></div><p class="hs-set" id="hsInstalled" hidden>You&rsquo;re all set &mdash; Daily Quotes is already on your home screen.</p></div></div></div></div>
       <div class="settings-card"><div class="acct-row" id="accountSignedOut"><div class="acct-copy"><span class="appearance-title">Family account</span><span class="appearance-note">Accounts are by invite only.</span></div><button class="button" id="accountSignIn" type="button">Sign in</button></div><div class="acct-row" id="accountSignedIn" hidden><div class="acct-copy"><span class="appearance-title" id="accountEmail">Signed in</span><span class="appearance-note" id="accountSync">Favorites are synced.</span></div><button class="button" id="accountSignOut" type="button">Sign out</button></div></div>
-      <div class="settings-card" id="pushCard" hidden><div class="acct-row"><div class="acct-copy"><span class="appearance-title">Daily reminder</span><span class="appearance-note">A notification each morning when today&rsquo;s quote is ready.</span><span class="appearance-note" id="pushStatus" hidden></span><span class="appearance-note push-ios-note" id="pushIosNote" hidden>On iPhone, notifications only work when the app is on your Home Screen. Use 'Add to Home Screen' above, then open the app from its icon and turn this on.</span></div><button class="button" id="pushToggle" type="button">Turn on the daily reminder</button></div></div>
+      <div class="settings-card" id="pushCard" hidden><div class="acct-row"><div class="acct-copy"><span class="appearance-title">Daily reminder</span><span class="appearance-note">Notification each morning when today&rsquo;s quote is ready.</span><span class="appearance-note push-ios-note" id="pushIosNote" hidden>On iPhone, notifications only work when the app is on your Home Screen. Use 'Add to Home Screen' above, then open the app from its icon and turn this on.</span></div><span class="push-btn-col"><button class="button" id="pushToggle" type="button">Turn on the daily reminder</button><span class="push-status" id="pushStatus" hidden></span></span></div></div>
       <h2 class="settings-label">About</h2>
       <div class="settings-card"><p class="about-copy">A collection of Walt Grayum’s words, gathered from his sermons and preserved for the people who knew and loved him.</p></div>
     </div></section>
@@ -686,8 +690,9 @@
     $('accountSignOut').addEventListener('click',acctSignOut);
     var VAPID_PUBLIC_KEY='BINBRIMeaP-FfsV0NtBp35STHA4dYZSEA1sPUbTpuRzbLuWQI8Q5GZFYNfbMDJCyfKP7UK8-TWIGzPiyJPwaDpg';
     var pushBusy=false;
+    var pushSubscribed=false;
     function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;}
-    function pushStandalone(){try{return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}catch(e){return false;}}function pushIsIOS(){try{var ua=navigator.userAgent||'';var plat=navigator.platform||'';return /iPhone|iPad|iPod/.test(ua)||(plat==='MacIntel'&&navigator.maxTouchPoints>1);}catch(e){return false;}}function pushSyncIosNote(){var el=document.getElementById('pushIosNote');if(!el)return;el.hidden=!(pushIsIOS()&&!pushStandalone());}
+    function pushStandalone(){try{return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}catch(e){return false;}}function pushIsIOS(){try{var ua=navigator.userAgent||'';var plat=navigator.platform||'';return /iPhone|iPad|iPod/.test(ua)||(plat==='MacIntel'&&navigator.maxTouchPoints>1);}catch(e){return false;}}function pushSyncIosNote(){var el=document.getElementById('pushIosNote');if(!el)return;el.hidden=!(pushIsIOS()&&!pushStandalone()&&!pushSubscribed);}
     function setPushStatus(t){var el=$('pushStatus');if(!el)return;el.textContent=t||'';el.hidden=!t;}
     function vapidKeyBytes(base64String){var padding='='.repeat((4-base64String.length%4)%4);var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');var raw=window.atob(base64);var out=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
     function pushRegistration(){if(!('serviceWorker' in navigator))return Promise.resolve(null);return navigator.serviceWorker.getRegistration().then(function(reg){return reg||navigator.serviceWorker.ready;}).catch(function(){return null;});}
@@ -724,8 +729,9 @@
         if(!reg||!reg.pushManager)return null;
         return reg.pushManager.getSubscription();
       }).then(function(sub){
-        if(!sub){btn.textContent='Turn on the daily reminder';if(window.Notification&&Notification.permission==='denied')setPushStatus('Notifications are turned off for this app. You can allow them again in iOS Settings.');else setPushStatus('');return null;}
+        if(!sub){pushSubscribed=false;pushSyncIosNote();btn.textContent='Turn on the daily reminder';if(window.Notification&&Notification.permission==='denied')setPushStatus('Notifications are turned off for this app. You can allow them again in iOS Settings.');else setPushStatus('');return null;}
         return pushFetchDoc().then(function(r){pushMaybeRefreshTz(r.data,sub);return pushIsRecorded(r.data,sub);},function(){return true;}).then(function(recorded){
+          pushSubscribed=!!recorded;pushSyncIosNote();
           if(recorded){btn.textContent='Turn off';setPushStatus('This phone is set up for the daily reminder.');}
           else{btn.textContent='Turn on the daily reminder';setPushStatus('');}
         });
