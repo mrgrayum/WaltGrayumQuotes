@@ -250,7 +250,7 @@
       <div class="settings-card"><div class="refresh-row"><div class="refresh-copy"><span class="appearance-title">Refresh the app</span><span class="appearance-note">Load the latest version, so new quotes and features appear and anything that didn&rsquo;t update on its own catches up. Your favorites stay saved.</span></div><button class="button" id="refreshApp" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>Refresh</button></div></div>
       <div class="settings-card hs-card" id="hsCard"><button class="hs-head" id="hsToggle" type="button" aria-expanded="false" aria-controls="hsBody"><span class="hs-head-copy"><span class="appearance-title">Add to your home screen</span></span><span class="hs-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button><div class="hs-body" id="hsBody"><div class="hs-body-inner"><div class="hs-content"><div id="hsSteps"><p class="hs-intro">Keep the daily quote one tap away &mdash; add Daily Quotes to your home screen.</p><p class="hs-platform">iPhone / iPad (Safari)</p><ol class="hs-steps"><li>Tap the Share button <span class="hs-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span> (the square with an arrow pointing up) at the bottom of Safari.</li><li>Scroll down and tap &ldquo;Add to Home Screen&rdquo;.</li><li>Tap &ldquo;Add&rdquo; in the top-right corner.</li></ol><p class="hs-note">The app will appear on your home screen just like any other app.</p><p class="hs-platform">Android (Chrome)</p><ol class="hs-steps"><li>Tap the three-dot menu <span class="hs-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></span> in the top-right corner of Chrome.</li><li>Tap &ldquo;Add to Home screen&rdquo; (or &ldquo;Install app&rdquo;).</li><li>Tap &ldquo;Add&rdquo; / &ldquo;Install&rdquo; to confirm.</li></ol></div><p class="hs-set" id="hsInstalled" hidden>You&rsquo;re all set &mdash; Daily Quotes is already on your home screen.</p></div></div></div></div>
       <div class="settings-card"><div class="acct-row" id="accountSignedOut"><div class="acct-copy"><span class="appearance-title">Family account</span><span class="appearance-note">Accounts are by invite only.</span></div><button class="button" id="accountSignIn" type="button">Sign in</button></div><div class="acct-row" id="accountSignedIn" hidden><div class="acct-copy"><span class="appearance-title" id="accountEmail">Signed in</span><span class="appearance-note" id="accountSync">Favorites are synced.</span></div><button class="button" id="accountSignOut" type="button">Sign out</button></div></div>
-      <div class="settings-card" id="pushCard" hidden><div class="acct-row"><div class="acct-copy"><span class="appearance-title">Daily reminder (test)</span><span class="appearance-note">A test of a daily-quote reminder sent to this phone.</span><span class="appearance-note" id="pushStatus" hidden></span></div><button class="button" id="pushToggle" type="button">Turn on the daily reminder</button></div></div>
+      <div class="settings-card" id="pushCard" hidden><div class="acct-row"><div class="acct-copy"><span class="appearance-title">Daily reminder</span><span class="appearance-note">A notification each morning when today&rsquo;s quote is ready.</span><span class="appearance-note" id="pushStatus" hidden></span></div><button class="button" id="pushToggle" type="button">Turn on the daily reminder</button></div></div>
       <h2 class="settings-label">About</h2>
       <div class="settings-card"><p class="about-copy">A collection of Walt Grayum’s words, gathered from his sermons and preserved for the people who knew and loved him.</p></div>
     </div></section>
@@ -655,9 +655,30 @@
     function setPushStatus(t){var el=$('pushStatus');if(!el)return;el.textContent=t||'';el.hidden=!t;}
     function vapidKeyBytes(base64String){var padding='='.repeat((4-base64String.length%4)%4);var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');var raw=window.atob(base64);var out=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
     function pushRegistration(){if(!('serviceWorker' in navigator))return Promise.resolve(null);return navigator.serviceWorker.getRegistration().then(function(reg){return reg||navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    function pushDeviceKey(endpoint){var s=String(endpoint||'');function hex8(n){return('0000000'+(n>>>0).toString(16)).slice(-8);}return 'd'+hex8(hash(s))+hex8(hash('push-device:'+s));}
+    function pushFetchDoc(){return acctServices().then(function(s){return s.db.collection('users').doc(acctUser.uid).get().then(function(snap){return{services:s,data:snap.exists?snap.data():null};});});}
+    function pushIsRecorded(data,sub){if(!data||!sub||!sub.endpoint)return false;var map=data.pushSubscriptions;if(map&&typeof map==='object'&&map[pushDeviceKey(sub.endpoint)])return true;var legacy=data.pushSubscription;return!!(legacy&&legacy.endpoint===sub.endpoint);}
+    function pushCurrentTz(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(e){return '';}}
+    function pushMaybeRefreshTz(data,sub){
+      if(!data||!sub||!sub.endpoint)return;
+      var tz=pushCurrentTz();if(!tz)return;
+      var key=pushDeviceKey(sub.endpoint);
+      var map=data.pushSubscriptions;
+      var entry=(map&&typeof map==='object')?map[key]:null;
+      if(entry){
+        if(entry.tz===tz)return;
+        acctServices().then(function(s){var patch={pushSubscriptions:{}};patch.pushSubscriptions[key]={tz:tz};return s.db.collection('users').doc(acctUser.uid).set(patch,{merge:true});}).catch(function(){});
+        return;
+      }
+      var legacy=data.pushSubscription;
+      if(legacy&&legacy.endpoint===sub.endpoint){
+        if(legacy.tz===tz)return;
+        acctServices().then(function(s){return s.db.collection('users').doc(acctUser.uid).set({pushSubscription:{tz:tz}},{merge:true});}).catch(function(){});
+      }
+    }
     function updatePushCard(){
       var card=$('pushCard');if(!card)return Promise.resolve();
-      var show=!!(acctUser&&acctVerified&&acctUser.email&&String(acctUser.email).toLowerCase()==='mrgrayum@gmail.com');
+      var show=!!(acctUser&&acctVerified);
       card.hidden=!show;
       if(!show)return Promise.resolve();
       var btn=$('pushToggle');
@@ -667,8 +688,11 @@
         if(!reg||!reg.pushManager)return null;
         return reg.pushManager.getSubscription();
       }).then(function(sub){
-        if(sub){btn.textContent='Turn off';setPushStatus('This phone is set up for the test.');}
-        else{btn.textContent='Turn on the daily reminder';if(window.Notification&&Notification.permission==='denied')setPushStatus('Notifications are turned off for this app. You can allow them again in iOS Settings.');else setPushStatus('');}
+        if(!sub){btn.textContent='Turn on the daily reminder';if(window.Notification&&Notification.permission==='denied')setPushStatus('Notifications are turned off for this app. You can allow them again in iOS Settings.');else setPushStatus('');return null;}
+        return pushFetchDoc().then(function(r){pushMaybeRefreshTz(r.data,sub);return pushIsRecorded(r.data,sub);},function(){return true;}).then(function(recorded){
+          if(recorded){btn.textContent='Turn off';setPushStatus('This phone is set up for the daily reminder.');}
+          else{btn.textContent='Turn on the daily reminder';setPushStatus('');}
+        });
       }).catch(function(){});
     }
     function pushButtonTap(){
@@ -684,25 +708,38 @@
       pushRegistration().then(function(reg){
         if(!reg||!reg.pushManager)throw new Error('No registration');
         return reg.pushManager.getSubscription().then(function(existing){
-          if(existing){
-            return existing.unsubscribe().then(function(){
-              return acctServices().then(function(s){
-                return s.db.collection('users').doc(acctUser.uid).set({pushSubscription:s.fb.firestore.FieldValue.delete(),pushSubscriptionUpdatedAt:s.fb.firestore.FieldValue.serverTimestamp()},{merge:true});
-              });
-            }).then(function(){finish('The test reminder is off for this phone.');},function(){finish('Couldn\u2019t turn it off just now \u2014 check your connection and try again.');});
-          }
-          if(!pushStandalone()){finish('Open Daily Quotes from its Home Screen icon first, then tap this button there.');return null;}
-          var permReady=permPromise?permPromise:Promise.resolve(Notification.permission);
-          return permReady.then(function(perm){
-            if(perm!=='granted'){
-              finish(perm==='denied'?'Notifications are turned off for this app. You can allow them again in iOS Settings.':'Notifications weren\u2019t allowed, so the test reminder can\u2019t be sent to this phone.');
-              return null;
+          return pushFetchDoc().then(function(fetched){return{existing:existing,data:fetched.data};},function(){return{existing:existing,data:null};}).then(function(ctx){
+            var current=ctx.existing;
+            if(current&&pushIsRecorded(ctx.data,current)){
+              var ownKey=pushDeviceKey(current.endpoint);
+              var legacyMatches=!!(ctx.data&&ctx.data.pushSubscription&&ctx.data.pushSubscription.endpoint===current.endpoint);
+              return current.unsubscribe().then(function(){
+                return acctServices().then(function(s){
+                  var patch={pushSubscriptions:{},pushSubscriptionsUpdatedAt:s.fb.firestore.FieldValue.serverTimestamp()};
+                  patch.pushSubscriptions[ownKey]=s.fb.firestore.FieldValue.delete();
+                  if(legacyMatches)patch.pushSubscription=s.fb.firestore.FieldValue.delete();
+                  return s.db.collection('users').doc(acctUser.uid).set(patch,{merge:true});
+                });
+              }).then(function(){finish('The daily reminder is off for this phone.');},function(){finish('Couldn\u2019t turn it off just now \u2014 check your connection and try again.');});
             }
-            return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyBytes(VAPID_PUBLIC_KEY)}).then(function(sub){
-              var json=sub.toJSON();
-              return acctServices().then(function(s){
-                return s.db.collection('users').doc(acctUser.uid).set({pushSubscription:json,pushSubscriptionUpdatedAt:s.fb.firestore.FieldValue.serverTimestamp()},{merge:true});
-              }).then(function(){finish('You\u2019re set \u2014 a test notification can now be sent to this phone.');});
+            if(!pushStandalone()){finish('Open Daily Quotes from its Home Screen icon first, then tap this button there.');return null;}
+            var permReady=permPromise?permPromise:Promise.resolve(Notification.permission);
+            return permReady.then(function(perm){
+              if(perm!=='granted'){
+                finish(perm==='denied'?'Notifications are turned off for this app. You can allow them again in iOS Settings.':'Notifications weren\u2019t allowed, so the daily reminder can\u2019t be sent to this phone.');
+                return null;
+              }
+              var subReady=current?Promise.resolve(current):reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyBytes(VAPID_PUBLIC_KEY)});
+              return subReady.then(function(sub){
+                var json=sub.toJSON();var tzNow=pushCurrentTz();if(tzNow)json.tz=tzNow;
+                var key=pushDeviceKey(sub.endpoint||(json&&json.endpoint)||'');
+                return acctServices().then(function(s){
+                  var patch={pushSubscriptions:{},pushSubscriptionsUpdatedAt:s.fb.firestore.FieldValue.serverTimestamp()};
+                  patch.pushSubscriptions[key]=json;
+                  if(ctx.data&&ctx.data.pushSubscription)patch.pushSubscription=s.fb.firestore.FieldValue.delete();
+                  return s.db.collection('users').doc(acctUser.uid).set(patch,{merge:true});
+                }).then(function(){finish('You\u2019re set \u2014 this phone will get the daily reminder each morning.');});
+              });
             });
           });
         });
