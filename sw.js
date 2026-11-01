@@ -1,4 +1,4 @@
-const CACHE_NAME = 'walt-quotes-shell-v40';
+const CACHE_NAME = 'walt-quotes-shell-v41';
 const APP_SHELL = [
   './index.html',
   './assets/app.html',
@@ -34,7 +34,7 @@ self.addEventListener('push', function(event) {
       var payload = event.data.json();
       if (payload) {
         if (payload.title) title = payload.title;
-        if (payload.body) body = payload.body;
+        if ('body' in payload) body = payload.body;
         if (payload.url) url = payload.url;
       }
     } catch (e) {
