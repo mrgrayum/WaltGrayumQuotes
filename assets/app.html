@@ -250,6 +250,7 @@
       <div class="settings-card"><div class="refresh-row"><div class="refresh-copy"><span class="appearance-title">Refresh the app</span><span class="appearance-note">Load the latest version, so new quotes and features appear and anything that didn&rsquo;t update on its own catches up. Your favorites stay saved.</span></div><button class="button" id="refreshApp" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>Refresh</button></div></div>
       <div class="settings-card hs-card" id="hsCard"><button class="hs-head" id="hsToggle" type="button" aria-expanded="false" aria-controls="hsBody"><span class="hs-head-copy"><span class="appearance-title">Add to your home screen</span></span><span class="hs-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button><div class="hs-body" id="hsBody"><div class="hs-body-inner"><div class="hs-content"><div id="hsSteps"><p class="hs-intro">Keep the daily quote one tap away &mdash; add Daily Quotes to your home screen.</p><p class="hs-platform">iPhone / iPad (Safari)</p><ol class="hs-steps"><li>Tap the Share button <span class="hs-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span> (the square with an arrow pointing up) at the bottom of Safari.</li><li>Scroll down and tap &ldquo;Add to Home Screen&rdquo;.</li><li>Tap &ldquo;Add&rdquo; in the top-right corner.</li></ol><p class="hs-note">The app will appear on your home screen just like any other app.</p><p class="hs-platform">Android (Chrome)</p><ol class="hs-steps"><li>Tap the three-dot menu <span class="hs-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></span> in the top-right corner of Chrome.</li><li>Tap &ldquo;Add to Home screen&rdquo; (or &ldquo;Install app&rdquo;).</li><li>Tap &ldquo;Add&rdquo; / &ldquo;Install&rdquo; to confirm.</li></ol></div><p class="hs-set" id="hsInstalled" hidden>You&rsquo;re all set &mdash; Daily Quotes is already on your home screen.</p></div></div></div></div>
       <div class="settings-card"><div class="acct-row" id="accountSignedOut"><div class="acct-copy"><span class="appearance-title">Family account</span><span class="appearance-note">Accounts are by invite only.</span></div><button class="button" id="accountSignIn" type="button">Sign in</button></div><div class="acct-row" id="accountSignedIn" hidden><div class="acct-copy"><span class="appearance-title" id="accountEmail">Signed in</span><span class="appearance-note" id="accountSync">Favorites are synced.</span></div><button class="button" id="accountSignOut" type="button">Sign out</button></div></div>
+      <div class="settings-card" id="pushCard" hidden><div class="acct-row"><div class="acct-copy"><span class="appearance-title">Daily reminder (test)</span><span class="appearance-note">A test of a daily-quote reminder sent to this phone.</span><span class="appearance-note" id="pushStatus" hidden></span></div><button class="button" id="pushToggle" type="button">Turn on the daily reminder</button></div></div>
       <h2 class="settings-label">About</h2>
       <div class="settings-card"><p class="about-copy">A collection of Walt Grayum’s words, gathered from his sermons and preserved for the people who knew and loved him.</p></div>
     </div></section>
@@ -486,7 +487,7 @@
     function saveSyncedSnapshot(list){try{localStorage.setItem(FAV_SYNCED_KEY,JSON.stringify(cleanFavIds(list)));}catch(e){}}
     function sameFavIds(a,b){if(!a||!b||a.length!==b.length)return false;var sa=a.slice().sort(function(x,y){return x-y;}),sb=b.slice().sort(function(x,y){return x-y;});for(var i=0;i<sa.length;i++){if(sa[i]!==sb[i])return false;}return true;}
     function refreshAllFavUI(){document.querySelectorAll('[data-fav]').forEach(function(b){var id=b.getAttribute('data-fav'),on=isFav(id);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false');b.setAttribute('aria-label',on?'Remove from favorites':'Add to favorites');});syncTodayFav();syncDetailFav();if(state.tab==='favorites')renderFavorites();}
-    function renderAccountCard(){var out=$('accountSignedOut'),inn=$('accountSignedIn');if(!out||!inn)return;if(acctUser&&acctVerified){out.hidden=true;inn.hidden=false;$('accountEmail').textContent='Signed in as '+(acctUser.email||'');}else{inn.hidden=true;out.hidden=false;}}
+    function renderAccountCard(){var out=$('accountSignedOut'),inn=$('accountSignedIn');if(!out||!inn)return;if(acctUser&&acctVerified){out.hidden=true;inn.hidden=false;$('accountEmail').textContent='Signed in as '+(acctUser.email||'');}else{inn.hidden=true;out.hidden=false;}updatePushCard();}
     function setSyncStatus(t){var el=$('accountSync');if(el)el.textContent=t;}
     function acctDeny(){acctUser=null;acctVerified=false;acctGateUid=null;acctFreshSignIn=false;renderAccountCard();var d=$('signinDenied');if(d&&$('signinBackdrop').classList.contains('open')){$('signinSent').hidden=true;$('signinForm').hidden=false;d.hidden=false;}toast('Accounts are by invite only.');acctServices().then(function(s){if(s.auth)return s.auth.signOut();}).catch(function(){});}
     function acctGateAndSync(user){
@@ -647,6 +648,67 @@
     }
     $('accountSignIn').addEventListener('click',function(){openSignInSheet('signin');});
     $('accountSignOut').addEventListener('click',acctSignOut);
+    var VAPID_PUBLIC_KEY='BINBRIMeaP-FfsV0NtBp35STHA4dYZSEA1sPUbTpuRzbLuWQI8Q5GZFYNfbMDJCyfKP7UK8-TWIGzPiyJPwaDpg';
+    var pushBusy=false;
+    function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;}
+    function pushStandalone(){try{return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}catch(e){return false;}}
+    function setPushStatus(t){var el=$('pushStatus');if(!el)return;el.textContent=t||'';el.hidden=!t;}
+    function vapidKeyBytes(base64String){var padding='='.repeat((4-base64String.length%4)%4);var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');var raw=window.atob(base64);var out=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
+    function pushRegistration(){if(!('serviceWorker' in navigator))return Promise.resolve(null);return navigator.serviceWorker.getRegistration().then(function(reg){return reg||navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    function updatePushCard(){
+      var card=$('pushCard');if(!card)return Promise.resolve();
+      var show=!!(acctUser&&acctVerified&&acctUser.email&&String(acctUser.email).toLowerCase()==='mrgrayum@gmail.com');
+      card.hidden=!show;
+      if(!show)return Promise.resolve();
+      var btn=$('pushToggle');
+      if(!pushSupported()){btn.disabled=true;btn.textContent='Turn on the daily reminder';setPushStatus('Reminders need the Home Screen app on iOS 16.4 or later.');return Promise.resolve();}
+      btn.disabled=false;
+      return pushRegistration().then(function(reg){
+        if(!reg||!reg.pushManager)return null;
+        return reg.pushManager.getSubscription();
+      }).then(function(sub){
+        if(sub){btn.textContent='Turn off';setPushStatus('This phone is set up for the test.');}
+        else{btn.textContent='Turn on the daily reminder';if(window.Notification&&Notification.permission==='denied')setPushStatus('Notifications are turned off for this app. You can allow them again in iOS Settings.');else setPushStatus('');}
+      }).catch(function(){});
+    }
+    function pushButtonTap(){
+      if(pushBusy||!acctUser)return;
+      var btn=$('pushToggle');
+      if(!pushSupported()){setPushStatus('Reminders need the Home Screen app on iOS 16.4 or later.');return;}
+      pushBusy=true;btn.disabled=true;
+      function finish(msg){pushBusy=false;btn.disabled=false;updatePushCard().then(function(){if(msg)setPushStatus(msg);});}
+      var permPromise=null;
+      if(pushStandalone()&&window.Notification&&Notification.permission==='default'){
+        permPromise=new Promise(function(res){try{var p=Notification.requestPermission(function(perm){res(perm);});if(p&&typeof p.then==='function')p.then(function(perm){res(perm);});}catch(e){res(Notification.permission);}});
+      }
+      pushRegistration().then(function(reg){
+        if(!reg||!reg.pushManager)throw new Error('No registration');
+        return reg.pushManager.getSubscription().then(function(existing){
+          if(existing){
+            return existing.unsubscribe().then(function(){
+              return acctServices().then(function(s){
+                return s.db.collection('users').doc(acctUser.uid).set({pushSubscription:s.fb.firestore.FieldValue.delete(),pushSubscriptionUpdatedAt:s.fb.firestore.FieldValue.serverTimestamp()},{merge:true});
+              });
+            }).then(function(){finish('The test reminder is off for this phone.');},function(){finish('Couldn\u2019t turn it off just now \u2014 check your connection and try again.');});
+          }
+          if(!pushStandalone()){finish('Open Daily Quotes from its Home Screen icon first, then tap this button there.');return null;}
+          var permReady=permPromise?permPromise:Promise.resolve(Notification.permission);
+          return permReady.then(function(perm){
+            if(perm!=='granted'){
+              finish(perm==='denied'?'Notifications are turned off for this app. You can allow them again in iOS Settings.':'Notifications weren\u2019t allowed, so the test reminder can\u2019t be sent to this phone.');
+              return null;
+            }
+            return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyBytes(VAPID_PUBLIC_KEY)}).then(function(sub){
+              var json=sub.toJSON();
+              return acctServices().then(function(s){
+                return s.db.collection('users').doc(acctUser.uid).set({pushSubscription:json,pushSubscriptionUpdatedAt:s.fb.firestore.FieldValue.serverTimestamp()},{merge:true});
+              }).then(function(){finish('You\u2019re set \u2014 a test notification can now be sent to this phone.');});
+            });
+          });
+        });
+      }).catch(function(){finish('Something went wrong setting that up. Check your connection and try again.');});
+    }
+    $('pushToggle').addEventListener('click',pushButtonTap);
     $('signinSend').addEventListener('click',signinSubmit);
     $('signinCancel').addEventListener('click',closeSignIn);
     $('signinDone').addEventListener('click',closeSignIn);
@@ -678,7 +740,7 @@
     document.querySelectorAll('[data-dq-style]').forEach(function(b){b.addEventListener('click',function(){applyQuoteStyle(b.dataset.dqStyle);});});
     document.addEventListener('keydown',function(e){if(e.key==='Escape'){if($('welcomeBackdrop').classList.contains('open'))closeWelcome();else if($('playerBackdrop').classList.contains('open'))closePlayer();else if($('flagBackdrop').classList.contains('open'))closeFlag();else if($('shareBackdrop').classList.contains('open'))closeSharePicker();else if($('signinBackdrop').classList.contains('open'))closeSignIn();else if($('summaryBackdrop').classList.contains('open'))closeSummary();else if($('themeBackdrop').classList.contains('open'))closeThemes();else if($('detailBackdrop').classList.contains('open'))closeDetail();}});
     state.favIds=loadFavorites();state.quoteStyle=loadQuoteStyle();document.documentElement.setAttribute('data-quote-style',state.quoteStyle);syncQuoteStyleUI();renderToday();renderLibrary();restoreTab();maybeOpenWelcome();initAccount();
-    if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('data:application/javascript;base64,Y29uc3QgQ0FDSEVfTkFNRSA9ICd3YWx0LXF1b3Rlcy1zaGVsbC12MzMnOwpjb25zdCBBUFBfU0hFTEwgPSBbCiAgJy4vYXBwLmh0bWwnLAogICcuL21hbmlmZXN0Lmpzb24nLAogICcuL2ljb24tMTkyLnBuZycsCiAgJy4vaWNvbi01MTIucG5nJywKICAnLi93YWx0LXdlbGNvbWUuanBnJwpdOwoKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsKICBldmVudC53YWl0VW50aWwoY2FjaGVzLm9wZW4oQ0FDSEVfTkFNRSkudGhlbihmdW5jdGlvbihjYWNoZSkgewogICAgcmV0dXJuIGNhY2hlLmFkZEFsbChBUFBfU0hFTEwpOwogIH0pLnRoZW4oZnVuY3Rpb24oKSB7CiAgICByZXR1cm4gc2VsZi5za2lwV2FpdGluZygpOwogIH0pKTsKfSk7CgpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2FjdGl2YXRlJywgZnVuY3Rpb24oZXZlbnQpIHsKICBldmVudC53YWl0VW50aWwoY2FjaGVzLmtleXMoKS50aGVuKGZ1bmN0aW9uKGtleXMpIHsKICAgIHJldHVybiBQcm9taXNlLmFsbChrZXlzLmZpbHRlcihmdW5jdGlvbihrZXkpIHsKICAgICAgcmV0dXJuIGtleSAhPT0gQ0FDSEVfTkFNRTsKICAgIH0pLm1hcChmdW5jdGlvbihrZXkpIHsKICAgICAgcmV0dXJuIGNhY2hlcy5kZWxldGUoa2V5KTsKICAgIH0pKTsKICB9KS50aGVuKGZ1bmN0aW9uKCkgewogICAgcmV0dXJuIHNlbGYuY2xpZW50cy5jbGFpbSgpOwogIH0pKTsKfSk7CgpzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2ZldGNoJywgZnVuY3Rpb24oZXZlbnQpIHsKICBpZiAoZXZlbnQucmVxdWVzdC5tZXRob2QgIT09ICdHRVQnKSByZXR1cm47CiAgZXZlbnQucmVzcG9uZFdpdGgoY2FjaGVzLm1hdGNoKGV2ZW50LnJlcXVlc3QpLnRoZW4oZnVuY3Rpb24oY2FjaGVkKSB7CiAgICBpZiAoY2FjaGVkKSByZXR1cm4gY2FjaGVkOwogICAgcmV0dXJuIGZldGNoKGV2ZW50LnJlcXVlc3QpLnRoZW4oZnVuY3Rpb24ocmVzcG9uc2UpIHsKICAgICAgaWYgKHJlc3BvbnNlICYmIHJlc3BvbnNlLm9rICYmIG5ldyBVUkwoZXZlbnQucmVxdWVzdC51cmwpLm9yaWdpbiA9PT0gc2VsZi5sb2NhdGlvbi5vcmlnaW4pIHsKICAgICAgICB2YXIgY29weSA9IHJlc3BvbnNlLmNsb25lKCk7CiAgICAgICAgY2FjaGVzLm9wZW4oQ0FDSEVfTkFNRSkudGhlbihmdW5jdGlvbihjYWNoZSkgeyBjYWNoZS5wdXQoZXZlbnQucmVxdWVzdCwgY29weSk7IH0pOwogICAgICB9CiAgICAgIHJldHVybiByZXNwb25zZTsKICAgIH0pLmNhdGNoKGZ1bmN0aW9uKCkgewogICAgICBpZiAoZXZlbnQucmVxdWVzdC5tb2RlID09PSAnbmF2aWdhdGUnKSByZXR1cm4gY2FjaGVzLm1hdGNoKCcuL2FwcC5odG1sJyk7CiAgICAgIHRocm93IG5ldyBFcnJvcignT2ZmbGluZSByZXNvdXJjZSB1bmF2YWlsYWJsZScpOwogICAgfSk7CiAgfSkpOwp9KTsK').catch(function(){});});}
+    if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
   })();
   </script>
   <script>
