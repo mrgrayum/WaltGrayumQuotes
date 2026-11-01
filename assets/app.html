@@ -232,6 +232,15 @@
     .ig-step-text{display:block;margin-top:3px;color:var(--muted);font-size:13px;line-height:1.55}
     .ig-done{width:100%;min-height:50px;margin-top:16px}
     .ig-flavor[hidden]{display:none}
+    .ig-watch{display:flex;width:100%;align-items:center;gap:14px;margin-top:6px;padding:14px 0 2px;border:0;border-top:1px solid var(--line);background:transparent;text-align:left;cursor:pointer;color:var(--ink)}
+    .ig-watch-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px;background:var(--accent-soft);color:var(--accent-strong);display:grid;place-items:center}
+    .ig-watch-icon svg{width:22px;height:22px;fill:currentColor;stroke:none}
+    .ig-watch-copy{flex:1;min-width:0;padding-top:2px}
+    .ig-watch-label{display:block;font-size:14px;font-weight:600;color:var(--ink);line-height:1.4}
+    .ig-watch-caption{display:block;margin-top:2px;color:var(--muted);font-size:12px;line-height:1.45}
+    .guide-video-backdrop{z-index:80}
+    .guide-video-sheet{width:min(100%,520px)}
+    .guide-video{display:block;width:100%;max-height:75vh;margin-top:16px;border-radius:14px;background:var(--paper);object-fit:contain}
 
   </style>
   <script>try{var dqsv=localStorage.getItem('walt-grayum-quote-style-v1');document.documentElement.setAttribute('data-quote-style',dqsv==='a'||dqsv==='c'||dqsv==='classic'?dqsv:'classic');}catch(e){document.documentElement.setAttribute('data-quote-style','classic');}</script>
@@ -373,6 +382,7 @@
         <li class="ig-step"><span class="ig-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg></span><span class="ig-copy"><span class="ig-step-title">2. Tap &ldquo;Add to Home Screen&rdquo;</span><span class="ig-step-text">Scroll down in the menu that appears and tap &ldquo;Add to Home Screen&rdquo;.</span></span></li>
         <li class="ig-step"><span class="ig-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ig-copy"><span class="ig-step-title">3. Tap &ldquo;Add&rdquo;</span><span class="ig-step-text">Tap &ldquo;Add.&rdquo; The name is already filled in &mdash; then open the app from your new home-screen icon.</span></span></li>
       </ol>
+      <button class="ig-watch" id="igWatchBtn" type="button"><span class="ig-watch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span><span class="ig-watch-copy"><span class="ig-watch-label">Watch the video guide</span><span class="ig-watch-caption">20 seconds</span></span></button>
     </div>
     <div class="ig-flavor" id="igAndroid" hidden>
       <ol class="ig-steps">
@@ -382,6 +392,10 @@
       </ol>
     </div>
     <button class="button primary ig-done" id="installDone" type="button">Done</button>
+  </div></section></div>
+  <div class="backdrop guide-video-backdrop" id="guideVideoBackdrop" role="dialog" aria-modal="true" aria-labelledby="guideVideoTitle"><section class="sheet guide-video-sheet"><div class="grab" aria-hidden="true"></div><div class="sheet-pad">
+    <div class="sheet-top"><div><p class="kicker">Video guide</p><h2 class="detail-title" id="guideVideoTitle">Add to Home Screen</h2></div><button class="sheet-close" id="guideVideoClose" type="button" aria-label="Close video guide"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <video class="guide-video" id="guideVideo" src="assets/install-guide.mp4" controls playsinline preload="none"></video>
   </div></section></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -846,7 +860,7 @@
     var backdrop=document.getElementById('installBackdrop'),iosFlavor=document.getElementById('igIos'),androidFlavor=document.getElementById('igAndroid');
     function guideFlavor(){if(isIOS())return 'ios';if(isAndroid())return 'android';try{if(navigator.maxTouchPoints>0)return 'ios';}catch(e){}return 'android';}
     function openGuide(){if(!backdrop)return;var f=guideFlavor();if(iosFlavor)iosFlavor.hidden=f!=='ios';if(androidFlavor)androidFlavor.hidden=f!=='android';backdrop.classList.add('open');}
-    function closeGuide(){if(backdrop)backdrop.classList.remove('open');}
+    function closeGuide(){closeGuideVideo();if(backdrop)backdrop.classList.remove('open');}
     if(installBtn)installBtn.addEventListener('click',function(){
       if(isStandalone()){showInstalled();return;}
       if(deferredPrompt){var p=deferredPrompt;deferredPrompt=null;try{p.prompt();}catch(e){openGuide();return;}
@@ -859,7 +873,13 @@
     if(closeBtn)closeBtn.addEventListener('click',closeGuide);
     if(doneBtn)doneBtn.addEventListener('click',closeGuide);
     if(backdrop)backdrop.addEventListener('click',function(e){if(e.target===this)closeGuide();});
-    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&backdrop&&backdrop.classList.contains('open'))closeGuide();});
+    var gvBackdrop=document.getElementById('guideVideoBackdrop'),gvVideo=document.getElementById('guideVideo'),gvBtn=document.getElementById('igWatchBtn'),gvClose=document.getElementById('guideVideoClose');
+    function openGuideVideo(){if(!gvBackdrop)return;gvBackdrop.classList.add('open');if(gvVideo){try{gvVideo.currentTime=0;}catch(e){}try{var pr=gvVideo.play();if(pr&&typeof pr.catch==='function')pr.catch(function(){});}catch(e){}}setTimeout(function(){if(gvClose)gvClose.focus();},30);}
+    function closeGuideVideo(){if(gvVideo){try{gvVideo.pause();}catch(e){}try{gvVideo.currentTime=0;}catch(e){}}if(gvBackdrop)gvBackdrop.classList.remove('open');if(gvBtn&&backdrop&&backdrop.classList.contains('open'))setTimeout(function(){try{gvBtn.focus();}catch(e){}},30);}
+    if(gvBtn)gvBtn.addEventListener('click',openGuideVideo);
+    if(gvClose)gvClose.addEventListener('click',closeGuideVideo);
+    if(gvBackdrop)gvBackdrop.addEventListener('click',function(e){if(e.target===this)closeGuideVideo();});
+    document.addEventListener('keydown',function(e){if(e.key!=='Escape')return;if(gvBackdrop&&gvBackdrop.classList.contains('open')){closeGuideVideo();return;}if(backdrop&&backdrop.classList.contains('open'))closeGuide();});
   })();
   </script>
 </body>
